@@ -3,8 +3,8 @@ use std::{iter::Peekable, slice::Iter};
 use serde::{
     Deserialize, Deserializer,
     de::{
-        DeserializeOwned, IntoDeserializer, Visitor,
-        value::{BorrowedStrDeserializer, StrDeserializer},
+        DeserializeOwned, Error, IntoDeserializer, Visitor,
+        value::{self, BorrowedStrDeserializer, StrDeserializer},
     },
     forward_to_deserialize_any,
 };
@@ -20,16 +20,16 @@ pub struct Fan {
     pub desired_speed: u64,
 }
 
-pub fn query<T: DeserializeOwned>() -> Vec<T> {
-    let (name, _fields) = meta::struct_name_and_fields::<T>().unwrap();
+pub fn query<T: DeserializeOwned>() -> Result<Vec<T>, value::Error> {
+    let (name, _fields) = meta::struct_name_and_fields::<T>()?;
 
     let mut res = vec![];
 
     for obj in raw_api::query(&format!("SELECT * FROM {name}")) {
-        res.push(T::deserialize(ObjectDeserializer { obj }).unwrap())
+        res.push(T::deserialize(ObjectDeserializer { obj })?)
     }
 
-    res
+    Ok(res)
 }
 
 struct ObjectDeserializer {
@@ -37,13 +37,15 @@ struct ObjectDeserializer {
 }
 
 impl<'de> Deserializer<'de> for ObjectDeserializer {
-    type Error = serde::de::value::Error;
+    type Error = value::Error;
 
     fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: Visitor<'de>,
     {
-        panic!()
+        Err(Self::Error::custom(
+            "Only `struct` deserialization is supported",
+        ))
     }
 
     forward_to_deserialize_any! {
@@ -92,7 +94,10 @@ impl<'de> Deserializer<'de> for ObjectDeserializer {
             where
                 V: serde::de::DeserializeSeed<'de>,
             {
-                let current_field = self.fields.next().unwrap();
+                let current_field = self
+                    .fields
+                    .next()
+                    .expect("Next value should only be called after next_key returned something");
 
                 let field_value = self.obj.get_attr(current_field);
 
@@ -108,12 +113,23 @@ impl<'de> Deserializer<'de> for ObjectDeserializer {
                         V: Visitor<'de>,
                     {
                         match self.value {
+                            raw_api::Value::Null => visitor.visit_none(),
                             raw_api::Value::Bool(b) => visitor.visit_bool(b),
                             raw_api::Value::I1(v) => visitor.visit_i8(v),
-                            // ..
+                            raw_api::Value::I2(v) => visitor.visit_i16(v),
+                            raw_api::Value::I4(v) => visitor.visit_i32(v),
+                            raw_api::Value::I8(v) => visitor.visit_i64(v),
+                            raw_api::Value::UI1(v) => visitor.visit_u8(v),
+                            raw_api::Value::UI2(v) => visitor.visit_u16(v),
+                            raw_api::Value::UI4(v) => visitor.visit_u32(v),
                             raw_api::Value::UI8(v) => visitor.visit_u64(v),
+                            raw_api::Value::R4(v) => visitor.visit_f32(v),
+                            raw_api::Value::R8(v) => visitor.visit_f64(v),
                             raw_api::Value::String(s) => visitor.visit_string(s),
-                            _ => todo!(),
+                            other => Err(Self::Error::custom(format!(
+                                "Unimplemented Value variant {:?}",
+                                other
+                            ))),
                         }
                     }
 

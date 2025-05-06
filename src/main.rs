@@ -37,7 +37,7 @@ fn main() -> anyhow::Result<()> {
         }
     }
 
-    let res: Vec<v2_api::Fan> = v2_api::query();
+    let res: Vec<v2_api::Fan> = v2_api::query()?;
 
     for fan in res {
         if fan.active_cooling {
@@ -51,14 +51,14 @@ fn main() -> anyhow::Result<()> {
     #[derive(Default, Deserialize)]
     #[serde(rename = "Win32_Fan")]
     #[serde(rename_all = "PascalCase")]
-    pub struct Fan2<'a> {
+    pub struct BorrowedFan<'a> {
         name: &'a str,
         active_cooling: bool,
         desired_speed: u64,
     }
 
     // Error: implementation of `api::_::_serde::Deserialize` is not general enough
-    // let res: Vec<Fan2> = v2_api::query();
+    // let res: Vec<BorrowedFan> = v2_api::query()?;
 
     Ok(())
 }
