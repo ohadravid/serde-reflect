@@ -35,31 +35,42 @@ pub fn serde_manual_impl_example() -> Result<(), serde_json::Error> {
         desired_speed: u64,
     }
 
-    // Define a custom visitor that match each named field to a concrete value.
+    // Remember: `derive(Deserialize)` automatically generates this code
+    // (both new struct and the impl) at compile time, based on the `Fan` struct definition.
+
+    // A struct with no fields, only needed so we can attach the impl to something.
     struct FanVisitor;
     impl<'de> serde::de::Visitor<'de> for FanVisitor {
+        // The visitor specify what type it is going to produce
+        // (as indicated by the return type of `visit_map`).
         type Value = Fan;
 
-        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-            todo!()
-        }
-
+        // The `map` is where the data from the deserializer is coming from.
         fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
         where
             A: serde::de::MapAccess<'de>,
         {
-            let mut name: Option<String> = None;
-            let mut active_cooling: Option<bool> = None;
-            let mut desired_speed: Option<u64> = None;
+            // Match each named field to a concrete value.
+            let (mut name, mut active_cooling, mut desired_speed) = (None, None, None);
 
-            // We only support string keys,
-            // but notice that `next_value()` will return different types for different fields:
-            //  a `String` for name, a `bool` for active_cooling, etc.
-            while let Ok(Some(key)) = map.next_key::<&str>() {
+            // Use the `map` we got from the deserializer.
+            // `key`'s type is `&str`, which means we call `map.next_key::<&str>()`.
+            while let Ok(Some(key)) = map.next_key() {
+                // But, `next_value()` returns different types for different fields.
+                // We'll explain how later, when we implement our own `Deserializer` and `MapAccess`.
                 match key {
-                    "Name" => name = map.next_value()?,
-                    "ActiveCooling" => active_cooling = map.next_value()?,
-                    "DesiredSpeed" => desired_speed = map.next_value()?,
+                    "Name" => {
+                        let val: String = map.next_value()?;
+                        name = Some(val);
+                    }
+                    "ActiveCooling" => {
+                        let val: bool = map.next_value()?;
+                        active_cooling = Some(val);
+                    }
+                    "DesiredSpeed" => {
+                        let val: u64 = map.next_value()?;
+                        desired_speed = Some(val);
+                    }
                     _ => panic!(),
                 }
             }
@@ -69,6 +80,10 @@ pub fn serde_manual_impl_example() -> Result<(), serde_json::Error> {
                 active_cooling: active_cooling.unwrap(),
                 desired_speed: desired_speed.unwrap(),
             })
+        }
+
+        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+            todo!()
         }
     }
 
