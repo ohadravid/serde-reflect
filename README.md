@@ -1,4 +1,6 @@
-This repo contains the sources for all the code from the "A Rust API Inspired by Python, Powered by Serde" article [link](https://ohadravid.github.io/posts/).
+## About
+
+This repo contains the sources for the code in the "A Rust API Inspired by Python, Powered by Serde" article ([link](https://ohadravid.github.io/posts/2025-05-serde-reflect/#the-plan)).
 
 It shows how to use Serde's traits to turn this "raw" API:
 
@@ -38,3 +40,10 @@ for fan in res {
 ```
 
 It is based on work done for the [`wmi-rs` crate](https://github.com/ohadravid/wmi-rs).
+
+## Code Structure
+
+- `raw_api.rs`: The underlying API which return `Object`s and `Value`s, which require verbose and error prone handling.
+- `v1_api.rs`: A better `query` function with a custom trait which needs to be manually implemented by the user's `structs`.
+- `v2_api.rs`: The complete Serde-enabled `query` function.
+- `meta.rs`: A deserializer for getting the name (and fields) of a structure as `&str`s.
